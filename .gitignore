@@ -1,0 +1,14 @@
+GNU ARM*/
+/.trash/
+/.uceditor/
+/.projectlinkstore
+sniffer.ewd
+sniffer.ewp
+sniffer.eww
+sniffer.ipcf
+sniffer.Makefile
+sniffer.project.mak
+sniffer_cmake/CMakeLists.txt
+sniffer_cmake/CMakePresets.json
+sniffer_cmake/sniffer.cmake
+sniffer_cmake/toolchain.cmake
