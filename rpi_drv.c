@@ -14,7 +14,7 @@ RPI_Handle_t hRpiConfig;
 
 
 typedef struct {
-  char *data;
+  char data[128];
   uint8_t length;
 } Rpi_CmdBuf_t;
 
@@ -179,17 +179,16 @@ bool isMeasReady(){
 Rpi_Msg_t parse_rpi_cmd(const uint8_t *buf, const uint8_t buf_len) {
   Rpi_Msg_t msg;
   msg.cmd = RPI_CMD_UNKNOWN;
-  msg.cmd_data.data = NULL;
   msg.cmd_data.length = 0;
 
   //Null-terminate copy of the buffer
-  char temp[256];
+  char tmp[256];
 
-  memcpy(temp, buf, buf_len);
-  temp[buf_len] = '\0';
+  memcpy(tmp, buf, buf_len);
+  tmp[buf_len] = '\0';
 
   //get pointer to delimiter
-  char *delimiter = strchr(temp, ':');
+  char *delimiter = strchr(tmp, ':');
 
   if (delimiter == NULL) {
       if (strncmp((char*)buf, "stop", buf_len) == 0){
@@ -203,16 +202,15 @@ Rpi_Msg_t parse_rpi_cmd(const uint8_t *buf, const uint8_t buf_len) {
       }
   }else{
       *delimiter = '\0';
-      char *cmd = temp;
+      char *cmd = tmp;
       char *gps_data = delimiter + 1;
 
       if (strcmp(cmd, "start") == 0) {
           msg.cmd = RPI_CMD_START;
           msg.cmd_data.length = strlen(gps_data);
-          msg.cmd_data.data = malloc(msg.cmd_data.length + 1);
-          if (msg.cmd_data.data) {
-              strcpy(msg.cmd_data.data, gps_data);
-          }
+
+          memcpy(msg.cmd_data.data, gps_data, msg.cmd_data.length);
+          msg.cmd_data.data[msg.cmd_data.length] = '\0';
       }
   }
 
