@@ -37,18 +37,19 @@ static sl_sleeptimer_timer_handle_t hMeasTimerCo2;
 static sl_sleeptimer_timer_handle_t hInitTimerSo2;
 static sl_sleeptimer_timer_handle_t hInitTimerCo2;
 
-static void Sens_initialize(SENS_Handle_t *handle);
-static sl_status_t sens_handle_so2(Comm_Msg_t *msg);
-static sl_status_t sens_handle_co2(Comm_Msg_t *msg);
-static SENS_Handle_t* select_device(Comm_Device_t device);
-static sl_status_t parse_measured_values(Comm_Msg_t *msg, SENS_Handle_t *handle);
-static sl_status_t sens_send(Comm_Device_t device, SENS_Cmd_t cmd);
-static sl_status_t Sens_startMeasTimer(SENS_Type_t type);
-static sl_status_t Sens_stopMeasTimer(SENS_Type_t type);
-static sl_status_t Sens_startInitTimer(SENS_Type_t type);
-static sl_status_t Sens_stopInitTimer(SENS_Type_t type);
-static void Sens_cbMeasTimer(sl_sleeptimer_timer_handle_t *handle, void *data);
-static void Sens_cbInitTimer(sl_sleeptimer_timer_handle_t *handle, void *data);
+static void           Sens_initialize       (SENS_Handle_t *handle);
+static sl_status_t    Sens_handleSendRequest(SENS_Handle_t *pHandle);
+static sl_status_t    sens_handle_so2       (Comm_Msg_t *msg);
+static sl_status_t    sens_handle_co2       (Comm_Msg_t *msg);
+static SENS_Handle_t* select_device         (Comm_Device_t device);
+static sl_status_t    parse_measured_values (Comm_Msg_t *msg, SENS_Handle_t *handle);
+static sl_status_t    sens_send             (SENS_Handle_t *pHandle, SENS_Cmd_t cmd);
+static sl_status_t    Sens_startMeasTimer   (SENS_Type_t type);
+static sl_status_t    Sens_stopMeasTimer    (SENS_Type_t type);
+static sl_status_t    Sens_startInitTimer   (SENS_Type_t type);
+static sl_status_t    Sens_stopInitTimer    (SENS_Type_t type);
+static void           Sens_cbMeasTimer      (sl_sleeptimer_timer_handle_t *handle, void *data);
+static void           Sens_cbInitTimer      (sl_sleeptimer_timer_handle_t *handle, void *data);
 
 
 //TODO TEMP
@@ -82,11 +83,11 @@ SENS_Handle_t* select_device(Comm_Device_t device) {
 }
 
 
-void SENS_runStateMachine(Comm_Device_t device){
+sl_status_t SENS_runStateMachine(Comm_Device_t device){
 
   SENS_Handle_t *handle = select_device(device);
   sl_status_t timer_status = SL_STATUS_OK;
-  sl_status_t status;
+  sl_status_t status = SL_STATUS_FAIL;
 
   switch (handle->currentState) {
 
@@ -96,45 +97,27 @@ void SENS_runStateMachine(Comm_Device_t device){
           Sens_initialize(handle);
       }
       //do nothing
+      status = SL_STATUS_OK;
       break;
 
 
     case SENS_STATUS_SEND_REQUEST:
       //send request to sensors
-      if (device == COMM_DEVICE_SO2){
-          status = sens_send(device, SENS_CMD_GET_VALUE_SO2);
-          //timer_status = Sens_startMeasTimer(device);
+      status = Sens_handleSendRequest(handle);
 
-          if (status == SL_STATUS_OK){
-              handle->currentState = SENS_STATUS_REQUESTED;
-          }
-          else{
-              handle->currentState = SENS_STATUS_ERROR;
-              app_log_error("error when sending request to %s sensor, error num %lu    ", handle->printType, status);
-          }
-      }
-      else if (device == COMM_DEVICE_CO2){
-          //timer_status = Sens_startMeasTimer(device);
-          //I2C_Send();
-      }
-      else{
-          handle->currentState = SENS_STATUS_ERROR;
-          app_log_error("incorrect device passed    ");
-      }
       break;
 
 
     case SENS_STATUS_REQUESTED:
       //waiting for answer from sensor
       //answer handled in SENS_Handler()
+      status = SL_STATUS_OK;
       break;
 
 
     case SENS_STATUS_MEAS_READY:
       //measurement ready for reading
       //waiting for lora_handler.c to copy values and mark as sent
-
-
 
       if (handle->initState == SENS_INIT_IN_PROCESS){
           //Initialization successful
@@ -145,6 +128,7 @@ void SENS_runStateMachine(Comm_Device_t device){
       else{
           timer_status = Sens_stopMeasTimer(handle->type);
       }
+      status = SL_STATUS_OK;
       break;
 
 
@@ -152,6 +136,7 @@ void SENS_runStateMachine(Comm_Device_t device){
       //TODO error handling
       app_log_error("error state on %s    ", handle->printType);
       handle->currentState = SENS_STATUS_IDLE;
+      status = SL_STATUS_OK;
       break;
   }
 
@@ -159,6 +144,52 @@ void SENS_runStateMachine(Comm_Device_t device){
       handle->currentState = SENS_STATUS_ERROR;
       app_log_error("timer failure on %s    ", handle->printType);
   }
+
+
+  if (timer_status == SL_STATUS_FAIL) {
+      status = timer_status;
+  }
+  return status;
+}
+
+
+sl_status_t Sens_handleSendRequest(SENS_Handle_t *pHandle){
+  sl_status_t status = SL_STATUS_FAIL;
+  sl_status_t timer_status = SL_STATUS_OK;  //OK, because timer can be skipped
+
+  // Set timer if it is not init send request (different timer applies)
+  if (pHandle->initState != SENS_INIT_IN_PROCESS){
+      timer_status = Sens_startMeasTimer(pHandle->type);
+  }
+
+  switch (pHandle->type){
+
+    case SENS_TYPE_SO2:
+      status = sens_send(pHandle, SENS_CMD_GET_VALUE_SO2);
+
+      if (status == SL_STATUS_OK){
+          pHandle->currentState = SENS_STATUS_REQUESTED;
+      }else{
+          pHandle->currentState = SENS_STATUS_ERROR;
+          app_log_error("error when sending request to %s sensor, error num %lu    ",
+                        pHandle->printType, status);
+      }
+      break;
+
+
+    case SENS_TYPE_CO2:
+      //TODO sens_send(I2C);
+      status = SL_STATUS_OK;
+      break;
+  }
+
+
+  if (timer_status != SL_STATUS_OK){
+      app_log_error("meas timer error");
+      status = timer_status;
+  }
+
+  return status;
 }
 
 
@@ -306,21 +337,22 @@ sl_status_t parse_measured_values(Comm_Msg_t *msg, SENS_Handle_t *handle){
 }
 
 
-sl_status_t sens_send(Comm_Device_t device, SENS_Cmd_t cmd){
+sl_status_t sens_send(SENS_Handle_t *pHandle, SENS_Cmd_t cmd){
   const SENS_Cmd_Buf_t msg = sens_get_cmd_buf[cmd];
-  sl_status_t status;
+  sl_status_t status = SL_STATUS_FAIL;
 
-  if (device == COMM_DEVICE_SO2){
+  switch (pHandle->type){
+
+    case SENS_TYPE_SO2:
       status = UART_Send(sl_uartdrv_usart_so2_handle, (uint8_t*)msg.data, msg.length);
-  }
-  else if (device == COMM_DEVICE_CO2){
-      //send I2C msg
+      break;
+
+    case SENS_TYPE_CO2:
+      //TODO send I2C msg
       status = SL_STATUS_OK;
+      break;
   }
-  else{
-      app_log_error("invalid device passed    ");
-      status = SL_STATUS_FAIL;
-  }
+
   return status;
 }
 

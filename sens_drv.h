@@ -40,7 +40,7 @@ typedef struct{
 
 bool SENS_isSensorInitialized(Comm_Device_t device);
 bool SENS_isMeasReady(Comm_Device_t device);
-void SENS_runStateMachine(Comm_Device_t device);
+sl_status_t SENS_runStateMachine(Comm_Device_t device);
 void SENS_Init_State_Handles();
 sl_status_t SENS_Handler(Comm_Msg_t msg);
 
