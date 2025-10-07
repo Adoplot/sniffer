@@ -29,7 +29,7 @@ void RPI_set_rpi_status(RPI_Status_t status);
 
 
 void RPI_Init_State_Handles();
-sl_status_t RPI_Handler(Comm_Msg_t msg);
+sl_status_t RPI_Handler(Comm_Msg_t msg, uint8_t *pBuf, uint8_t *pBufLen);
 sl_status_t RPI_runStateMachine();
 void Rpi_SetStatusIdle(void);
 
