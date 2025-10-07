@@ -10,7 +10,7 @@
 #include <uart_drv.h>
 
 
-RPI_Handle_t hRpiConfig;
+static RPI_Handle_t hRpiConfig;
 
 
 typedef struct {
@@ -99,12 +99,15 @@ sl_status_t RPI_runStateMachine(){
 
 
     case RPI_STATUS_MEAS_READY:
-      //
+      //Initiate sending via Lora
+      Lora_SetState(LORA_STATUS__SEND_DATA);
+
+      hRpiConfig.currentState = RPI_STATUS_SENDING;
       status = SL_STATUS_OK;
       break;
 
     case RPI_STATUS_SENDING:
-      //do nothing
+      //wait till send complete
       status = SL_STATUS_OK;
       break;
 
@@ -244,6 +247,7 @@ sl_status_t RPI_Handler(Comm_Msg_t msg, uint8_t *pBuf, uint8_t *pBufLen){
     case RPI_CMD_START:
       //Start measuring
       status = handle_start(&rpi_msg, pBuf, pBufLen);
+
       break;
 
 
@@ -330,8 +334,9 @@ sl_status_t handle_start(Rpi_Msg_t *rpi_msg, uint8_t *pBuf, uint8_t *pBufLen){
 
       Rpi_reply(RPI_CMD_START_ACK, pBuf, pBufLen);
 
-      //Copy cmd buf to gps data
+      //Store GPS data
       memcpy(hRpiConfig.gps_buf, rpi_msg->cmd_data.data, rpi_msg->cmd_data.length);
+      hRpiConfig.gpsBufLen = rpi_msg->cmd_data.length;
 
       hRpiConfig.currentState = RPI_STATUS_MEASURING;
       status = SL_STATUS_OK;
