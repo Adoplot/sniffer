@@ -38,18 +38,6 @@ void app_init(void)
   UART_Send(sl_uartdrv_eusart_rpi_handle, (uint8_t*)buf, 14);
 
   //SENS_setState(COMM_DEVICE_SO2, SENS_STATUS_SEND_REQUEST);
-#if 0
-  char *pBuf = "start:123456789\n";
-  uint8_t buf_len = 16;
-  Comm_Msg_t msg;
-  memcpy(msg.data.buffer, pBuf, buf_len);
-  msg.data.buf_len = buf_len;
-  msg.device = COMM_DEVICE_RPI;
-  msg.result = COMM_RESULT_SUCCESS;
-
-  Rpi_SetStatusIdle();
-  RPI_Handler(msg);
-#endif
 }
 
 /***************************************************************************//**

@@ -96,7 +96,7 @@
 // <i> Default: APP_LOG_NEW_LINE_N
 #define APP_LOG_NEW_LINE                        APP_LOG_NEW_LINE_N
 
-#define APP_LOG_AUTO_NL                         0
+#define APP_LOG_AUTO_NL                         1
 
 // </h>
 
