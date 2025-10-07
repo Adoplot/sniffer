@@ -12,7 +12,7 @@
 static Uart_Handle_t  rpi_handle, lora_handle, so2_handle;
 
 static Uart_Handle_t* select_state_handle(struct UARTDRV_HandleData *handle);
-static sl_status_t call_handler(Uart_Handle_t *stateHandle);
+static sl_status_t call_handler(Uart_Handle_t *stateHandle, uint8_t *buf, uint8_t *buf_len);
 static void uart_TxCallback(struct UARTDRV_HandleData *handle, Ecode_t transferStatus,
                             uint8_t *data, UARTDRV_Count_t transferCount);
 static void uart_RxCallback(struct UARTDRV_HandleData *handle, Ecode_t transferStatus,
@@ -78,13 +78,12 @@ sl_status_t UART_runStateMachine(UARTDRV_Handle_t handle){
   switch(stateHandle->currentState){
 
     case UART_STATE_IDLE:
-      //TODO Do nothing???
-      //app_log("entered UART_STATE_IDLE    ");
+      //do nothing
       break;
+
 
     case UART_STATE_SEND:
       //initiate sending
-      //app_log("entered UART_STATE_SEND    ");
       status = send_buffer(handle, stateHandle->txDataBuf, stateHandle->txBuf_len);
       if (status == SL_STATUS_OK){
           send_counter = 0;
@@ -100,51 +99,58 @@ sl_status_t UART_runStateMachine(UARTDRV_Handle_t handle){
           app_log_error("send failed %d times, setting error state    ", send_counter);
           send_counter = 0;
       }
-
       break;
+
 
     case UART_STATE_TX_PENDING:
       //Waiting for TX callback
-      //app_log("entered UART_STATE_TX_PENDING    ");
       break;
 
 
     case UART_STATE_RX_PENDING:
       //Waiting for RX callback
-      //app_log("entered UART_STATE_RX_PENDING    ");
       break;
 
 
     case UART_STATE_SUCCESS:
       // buffer is ready to read
-      //app_log("entered UART_STATE_SUCCESS    ");
       // call corresponding handler for received cmd
-      call_handler_status = call_handler(stateHandle);
+      call_handler_status = call_handler(stateHandle, stateHandle->txDataBuf, &stateHandle->txBuf_len);
 
-      if (call_handler_status != SL_STATUS_OK){
+      if (call_handler_status){
           stateHandle->currentState = UART_STATE_ERROR;
       }
-      else{
-          stateHandle->currentState = UART_STATE_END;
-      }
-      break;
-
-
-    case UART_STATE_END:
-      // Cleanup code
-      //app_log("entered UART_STATE_END    ");
-      stateHandle->index = 0;                   //Reset rxDataBuf index
-      stateHandle->rxDataBuf[0] = '\0';         //Mark buf as empty
-      stateHandle->rxByte[0] = '\0';
-      //TODO maybe use memset?
-      //memset(stateHandle->rxDataBuf, 0, UART_DATA_BUF_SIZE);
-      stateHandle->currentState = UART_STATE_IDLE;
+      //clear rxBuf (needed for rpi immediate reply flow)
+      stateHandle->index = 0;
+      stateHandle->rxBuf_len = 0;
+      memset(stateHandle->rxDataBuf,'\0', UART_DATA_BUF_SIZE);
+      memset(stateHandle->rxByte,'\0', UART_RX_BUF_SIZE);
+      //TODO make it go through UART_STATE_END?
       break;
 
 
     case UART_STATE_ERROR:
-      stateHandle->currentState = UART_STATE_IDLE;
-      app_log_error("uart error on: %s    ", stateHandle->printType);
+          stateHandle->currentState = UART_STATE_END;
+          app_log_error("uart error on: %s    ", stateHandle->printType);
+          break;
+
+    case UART_STATE_END:
+      // Cleanup code
+      // Resetting buffers and indexes
+      stateHandle->index = 0;
+      stateHandle->rxBuf_len = 0;
+      stateHandle->txBuf_len = 0;
+      memset(stateHandle->rxDataBuf,'\0', UART_DATA_BUF_SIZE);
+      memset(stateHandle->rxByte,'\0', UART_RX_BUF_SIZE);
+      memset(stateHandle->txDataBuf,'\0', UART_DATA_BUF_SIZE);
+
+      //Only for RPI, to enable recv after receiving invalid cmd
+      if (stateHandle->type == UART_TYPE_RPI){
+          UARTDRV_Receive(handle, stateHandle->rxByte, 1, uart_RxCallback);
+          stateHandle->currentState = UART_STATE_RX_PENDING;
+      }else{
+          stateHandle->currentState = UART_STATE_IDLE;
+      }
       break;
   }
 
@@ -152,34 +158,50 @@ sl_status_t UART_runStateMachine(UARTDRV_Handle_t handle){
 }
 
 
-sl_status_t call_handler(Uart_Handle_t *stateHandle){
+sl_status_t call_handler(Uart_Handle_t *stateHandle, uint8_t *buf, uint8_t *buf_len){
   Comm_Msg_t msg;
+  sl_status_t status = SL_STATUS_FAIL;
 
-  if (stateHandle->type == UART_TYPE_RPI){
-      //Copy buffer into msg and pass msg by value
+  switch (stateHandle->type){
+
+    case UART_TYPE_RPI:
+      // Copy buffer into msg and pass msg by value
       memcpy(msg.data.buffer, stateHandle->rxDataBuf, stateHandle->rxBuf_len);
       msg.data.buf_len = stateHandle->rxBuf_len;
       msg.device = COMM_DEVICE_RPI;
 
-      RPI_Handler(msg);    //TODO return ok/fail?
+      status = RPI_Handler(msg, buf, buf_len);
 
-      return SL_STATUS_OK;
-  }
-  else if (stateHandle->type == UART_TYPE_LORA){
-      return SL_STATUS_OK;
-  }
-  else if (stateHandle->type == UART_TYPE_SO2){
+      if (!status){
+          stateHandle->currentState = UART_STATE_SEND;  //send reply immediately
+      }else{
+          stateHandle->currentState = UART_STATE_ERROR;
+      }
+      break;
+
+
+    case UART_TYPE_LORA:
+      //status = Lora_Handler();
+      status = SL_STATUS_OK; //TODO
+      break;
+
+
+    case UART_TYPE_SO2:
       memcpy(msg.data.buffer, stateHandle->rxDataBuf, stateHandle->rxBuf_len);
       msg.data.buf_len = stateHandle->rxBuf_len;
       msg.device = COMM_DEVICE_SO2;
 
-      SENS_Handler(msg);
+      status = SENS_Handler(msg);  //TODO
+      if (!status){
+          stateHandle->currentState = UART_STATE_END;
+      }else{
+          stateHandle->currentState = UART_STATE_ERROR;
+      }
+      status = SL_STATUS_OK;
+      break;
 
-      return SL_STATUS_OK;
   }
-  else{
-      return SL_STATUS_FAIL;
-  }
+  return status;
 }
 
 

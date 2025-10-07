@@ -41,9 +41,10 @@ typedef struct {
 } Rpi_Msg_t;
 
 
-static sl_status_t rpi_send(Rpi_Cmd_t cmd);
 static bool isAllInitialized();
-static sl_status_t handle_init();
+static void handle_init(uint8_t *pBuf, uint8_t *pBufLen);
+static sl_status_t handle_start(Rpi_Msg_t *rpi_msg, uint8_t *pBuf, uint8_t *pBufLen);
+static void Rpi_reply(Rpi_Cmd_t cmd, uint8_t *pBuf, uint8_t *pBufLen);
 
 
 const Rpi_CmdBuf_t rpi_get_cmd_buf[RPI_CMD_COUNT] = {
@@ -224,46 +225,21 @@ Rpi_Msg_t parse_rpi_cmd(const uint8_t *buf, const uint8_t buf_len) {
  * @return
  *    @ref SL_STATUS_OK
  ******************************************************************************/
-sl_status_t RPI_Handler(Comm_Msg_t msg){
+sl_status_t RPI_Handler(Comm_Msg_t msg, uint8_t *pBuf, uint8_t *pBufLen){
   Rpi_Msg_t rpi_msg;
   sl_status_t status = SL_STATUS_FAIL;
 
   rpi_msg = parse_rpi_cmd(msg.data.buffer, msg.data.buf_len);
 
   switch (rpi_msg.cmd){
+
     case RPI_CMD_START:
       //Start measuring
-
-      if (hRpiConfig.currentState == RPI_STATUS_IDLE){
-
-          //Request measurement from sensors
-          SENS_setState(COMM_DEVICE_SO2, SENS_STATUS_SEND_REQUEST);
-          SENS_setState(COMM_DEVICE_CO2, SENS_STATUS_SEND_REQUEST);
-
-          rpi_send(RPI_CMD_START_ACK);
-
-          //Copy cmd buf to gps data
-          memcpy(hRpiConfig.gps_buf, rpi_msg.cmd_data.data, rpi_msg.cmd_data.length);
-
-          hRpiConfig.currentState = RPI_STATUS_MEASURING;
-          status = SL_STATUS_OK;
-
-      }else if (hRpiConfig.currentState == RPI_STATUS_MEASURING ||
-          hRpiConfig.currentState == RPI_STATUS_MEAS_READY ||
-          hRpiConfig.currentState == RPI_STATUS_SENDING){
-
-          rpi_send(RPI_CMD_START_MEAS_IN_PROCESS);
-      }else{
-          app_log_error("received start in invalid state");
-          hRpiConfig.currentState = RPI_STATUS_ERROR;
-          status = SL_STATUS_FAIL;
-      }
-
-      return status;
+      status = handle_start(&rpi_msg, pBuf, pBufLen);
+      break;
 
 
-
-    case RPI_CMD_STOP_ACK:
+    case RPI_CMD_STOP_ACK:  //TODO
       //Stop measuring
 
       if (hRpiConfig.currentState == RPI_STATUS_MEASURING ||
@@ -281,63 +257,117 @@ sl_status_t RPI_Handler(Comm_Msg_t msg){
           hRpiConfig.currentState = RPI_STATUS_ERROR;
           status = SL_STATUS_FAIL;
       }
-
-      return status;
-
+      break;
 
 
     case RPI_CMD_INIT_CHECK:
       // Checks if all devices initialized and then sends reply to rpi
 
       if (hRpiConfig.currentState == RPI_STATUS_NOT_INITIALIZED){
-          status = handle_init();
+          handle_init(pBuf, pBufLen);
       }else{
+          Rpi_reply(RPI_CMD_INIT_ERR, pBuf, pBufLen);
+
           hRpiConfig.currentState = RPI_STATUS_ERROR;
-          status = rpi_send(RPI_CMD_INIT_ERR);
+
           app_log_warning("probably RPI already initialized");
       }
+      status = SL_STATUS_OK;
+      break;
 
-      return status;
+//TODO BUG: can be initialized without init: NOT_INIT->ERROR->IDLE
+    case RPI_CMD_UNKNOWN:
+      hRpiConfig.currentState = RPI_STATUS_ERROR;
 
-
+      status = SL_STATUS_FAIL;
+      app_log_warning("unrecognized cmd received");
+      break;
 
     default:
+      hRpiConfig.currentState = RPI_STATUS_ERROR;
+
+      status = SL_STATUS_FAIL;
       app_log_error("invalid cmd received    ");
-      return SL_STATUS_FAIL;
+      break;
   }
+
+  return status;
 }
 
 
-sl_status_t handle_init(){
-  sl_status_t status;
+void handle_init(uint8_t *pBuf, uint8_t *pBufLen){
 
   if (isAllInitialized()){
-      status = rpi_send(RPI_CMD_INIT_READY);
-      if (!status){
-          hRpiConfig.currentState = RPI_STATUS_IDLE;
-      } else{
-          hRpiConfig.currentState = RPI_STATUS_ERROR; }
-  }
-  else{
-      status = rpi_send(RPI_CMD_INIT_IN_PROCESS);
-      if (!status){
-          hRpiConfig.currentState = RPI_STATUS_NOT_INITIALIZED;
-      } else{
-          hRpiConfig.currentState = RPI_STATUS_ERROR; }
-  }
 
+      Rpi_reply(RPI_CMD_INIT_READY, pBuf, pBufLen);
+      hRpiConfig.currentState = RPI_STATUS_IDLE;
+
+  }else{
+
+      Rpi_reply(RPI_CMD_INIT_IN_PROCESS, pBuf, pBufLen);
+      hRpiConfig.currentState = RPI_STATUS_NOT_INITIALIZED;
+  }
+}
+
+
+sl_status_t handle_start(Rpi_Msg_t *rpi_msg, uint8_t *pBuf, uint8_t *pBufLen){
+
+  sl_status_t status = SL_STATUS_FAIL;
+  switch (hRpiConfig.currentState){
+
+    case RPI_STATUS_IDLE:
+      //Request measurement from sensors
+      SENS_setState(COMM_DEVICE_SO2, SENS_STATUS_SEND_REQUEST);
+      SENS_setState(COMM_DEVICE_CO2, SENS_STATUS_SEND_REQUEST);
+
+      Rpi_reply(RPI_CMD_START_ACK, pBuf, pBufLen);
+
+      //Copy cmd buf to gps data
+      memcpy(hRpiConfig.gps_buf, rpi_msg->cmd_data.data, rpi_msg->cmd_data.length);
+
+      hRpiConfig.currentState = RPI_STATUS_MEASURING;
+      status = SL_STATUS_OK;
+      break;
+
+
+    case RPI_STATUS_MEASURING:
+    case RPI_STATUS_MEAS_READY:
+    case RPI_STATUS_SENDING:
+
+      Rpi_reply(RPI_CMD_START_MEAS_IN_PROCESS, pBuf, pBufLen);
+      status = SL_STATUS_OK;
+      break;
+
+
+    case RPI_STATUS_SENT:
+
+      Rpi_reply(RPI_CMD_START_MEAS_SENT, pBuf, pBufLen);
+      status = SL_STATUS_OK;
+      break;
+
+
+    case RPI_STATUS_NOT_INITIALIZED:
+    case RPI_STATUS_ERROR:
+
+      Rpi_reply(RPI_CMD_START_ERR, pBuf, pBufLen);
+
+      hRpiConfig.currentState = RPI_STATUS_ERROR;
+
+      status = SL_STATUS_OK;
+      app_log_warning("received START cmd in invalid state    ");
+      break;
+  }
   return status;
 }
 
 
-sl_status_t rpi_send(Rpi_Cmd_t cmd){
+void Rpi_reply(Rpi_Cmd_t cmd, uint8_t *pBuf, uint8_t *pBufLen){
   const Rpi_CmdBuf_t msg = rpi_get_cmd_buf[cmd];
-  sl_status_t status;
 
-  status = UART_Send(sl_uartdrv_eusart_rpi_handle, (uint8_t*)msg.data, msg.length);
-
-  return status;
+  memcpy(pBuf, msg.data, msg.length);
+  *pBufLen = msg.length;
 }
+
 
 void Rpi_SetStatusIdle(void){
   hRpiConfig.currentState = RPI_STATUS_IDLE;
