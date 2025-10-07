@@ -5,12 +5,13 @@
 #include <sens_drv.h>
 #include <string.h>
 #include <uart_drv.h>
+#include <stdbool.h>
 #include "app_log.h"
 #include "communication.h"
 #include "sl_uartdrv_instances.h"
 
-#define SENS_TIMEOUT_MS_SO2         1000 //ms
-#define SENS_TIMEOUT_MS_CO2         1000 //ms
+#define SENS_TIMEOUT_MS_SO2         3000 //ms
+#define SENS_TIMEOUT_MS_CO2         3000 //ms
 #define SENS_TIMER_PRIORITY_SO2     0
 #define SENS_TIMER_PRIORITY_CO2     1
 
@@ -31,26 +32,32 @@ typedef enum{
 
 static SENS_Handle_t hSo2Config;
 static SENS_Handle_t hCo2Config;
-static sl_sleeptimer_timer_handle_t hSo2Timer;
-static sl_sleeptimer_timer_handle_t hCo2Timer;
+static sl_sleeptimer_timer_handle_t hMeasTimerSo2;
+static sl_sleeptimer_timer_handle_t hMeasTimerCo2;
+static sl_sleeptimer_timer_handle_t hInitTimerSo2;
+static sl_sleeptimer_timer_handle_t hInitTimerCo2;
 
+static void Sens_initialize(SENS_Handle_t *handle);
 static sl_status_t sens_handle_so2(Comm_Msg_t *msg);
 static sl_status_t sens_handle_co2(Comm_Msg_t *msg);
 static SENS_Handle_t* select_device(Comm_Device_t device);
 static sl_status_t parse_measured_values(Comm_Msg_t *msg, SENS_Handle_t *handle);
 static sl_status_t sens_send(Comm_Device_t device, SENS_Cmd_t cmd);
-static sl_status_t start_timer(Comm_Device_t device);
-static sl_status_t stop_timer(Comm_Device_t device);
+static sl_status_t Sens_startMeasTimer(Comm_Device_t device);
+static sl_status_t Sens_stopMeasTimer(Comm_Device_t device);
+static sl_status_t Sens_startInitTimer(SENS_Type_t type);
+static sl_status_t Sens_stopInitTimer(SENS_Type_t type);
 static void sens_timer_Callback(sl_sleeptimer_timer_handle_t *handle, void *data);
+static void Sens_cbInitTimer(sl_sleeptimer_timer_handle_t *handle, void *data);
 
 
 //TODO TEMP
-void SENS_setState(Comm_Device_t device, SENS_Status_t status){
+void SENS_setState(Comm_Device_t device, SENS_Status_t state){
   if (device == COMM_DEVICE_SO2) {
-      hSo2Config.currentState = status;
+      hSo2Config.currentState = state;
   }
   else if (device == COMM_DEVICE_CO2) {
-      hCo2Config.currentState = status;
+      hCo2Config.currentState = state;
   }
   else{
       app_log_error("incorrect device passed    ");
@@ -78,12 +85,16 @@ SENS_Handle_t* select_device(Comm_Device_t device) {
 void SENS_runStateMachine(Comm_Device_t device){
 
   SENS_Handle_t *handle = select_device(device);
-  sl_status_t timer_status;
+  sl_status_t timer_status = SL_STATUS_OK;
   sl_status_t status;
 
   switch (handle->currentState) {
 
     case SENS_STATUS_IDLE:
+      //check if sensor works correctly
+      if (handle->initState == SENS_INIT_NOT_INITIALIZED){
+          Sens_initialize(handle);
+      }
       //do nothing
       break;
 
@@ -92,7 +103,7 @@ void SENS_runStateMachine(Comm_Device_t device){
       //send request to sensors
       if (device == COMM_DEVICE_SO2){
           status = sens_send(device, SENS_CMD_GET_VALUE_SO2);
-          timer_status = start_timer(device);
+          //timer_status = Sens_startMeasTimer(device);
 
           if (status == SL_STATUS_OK){
               handle->currentState = SENS_STATUS_REQUESTED;
@@ -103,7 +114,7 @@ void SENS_runStateMachine(Comm_Device_t device){
           }
       }
       else if (device == COMM_DEVICE_CO2){
-          timer_status = start_timer(device);
+          //timer_status = Sens_startMeasTimer(device);
           //I2C_Send();
       }
       else{
@@ -122,8 +133,18 @@ void SENS_runStateMachine(Comm_Device_t device){
     case SENS_STATUS_MEAS_READY:
       //measurement ready for reading
       //waiting for lora_handler.c to copy values and mark as sent
-      timer_status = stop_timer(device);
 
+      //timer_status = Sens_stopMeasTimer(device);
+
+      if (handle->initState == SENS_INIT_IN_PROCESS){
+          //Initialization successful
+          handle->initState = SENS_INIT_INITIALIZED;
+          timer_status = Sens_stopInitTimer(handle->type);
+          handle->currentState = SENS_STATUS_IDLE;
+      }
+      else{
+          //stop measurement timer
+      }
       break;
 
 
@@ -132,6 +153,26 @@ void SENS_runStateMachine(Comm_Device_t device){
       app_log_error("error state on %s    ", handle->printType);
       handle->currentState = SENS_STATUS_IDLE;
       break;
+  }
+
+  if (timer_status == SL_STATUS_FAIL){
+      handle->currentState = SENS_STATUS_ERROR;
+      app_log_error("timer failure on %s    ", handle->printType);
+  }
+}
+
+
+void Sens_initialize(SENS_Handle_t *handle){
+  sl_status_t status = SL_STATUS_FAIL;
+
+  handle->initState = SENS_INIT_IN_PROCESS;
+
+  status = Sens_startInitTimer(handle->type);
+
+  if (status == SL_STATUS_OK){
+      handle->currentState = SENS_STATUS_SEND_REQUEST;
+  }else{
+      handle->currentState = SENS_STATUS_ERROR;
   }
 }
 
@@ -284,10 +325,10 @@ sl_status_t sens_send(Comm_Device_t device, SENS_Cmd_t cmd){
 }
 
 
-sl_status_t start_timer(Comm_Device_t device){
+sl_status_t Sens_startMeasTimer(Comm_Device_t device){
   sl_status_t status;
   if (device == COMM_DEVICE_SO2){
-      status = sl_sleeptimer_start_periodic_timer_ms(&hSo2Timer,
+      status = sl_sleeptimer_start_periodic_timer_ms(&hMeasTimerSo2,
                                                      SENS_TIMEOUT_MS_SO2,
                                                      sens_timer_Callback,
                                                      NULL,
@@ -295,7 +336,7 @@ sl_status_t start_timer(Comm_Device_t device){
                                                      0);
   }
   else if (device == COMM_DEVICE_CO2){
-      status = sl_sleeptimer_start_periodic_timer_ms(&hCo2Timer,
+      status = sl_sleeptimer_start_periodic_timer_ms(&hMeasTimerCo2,
                                                      SENS_TIMEOUT_MS_CO2,
                                                      sens_timer_Callback,
                                                      NULL,
@@ -310,13 +351,58 @@ sl_status_t start_timer(Comm_Device_t device){
 }
 
 
-sl_status_t stop_timer(Comm_Device_t device){
+sl_status_t Sens_startInitTimer(SENS_Type_t type){
+  sl_status_t status = SL_STATUS_FAIL;
+  uint32_t timeoutTicks;
+
+  switch (type){
+    case SENS_TYPE_SO2:
+      timeoutTicks = sl_sleeptimer_ms_to_tick(SENS_TIMEOUT_MS_SO2);
+      status = sl_sleeptimer_start_timer(&hInitTimerSo2,
+                                         timeoutTicks,
+                                         Sens_cbInitTimer,
+                                         NULL,
+                                         SENS_TIMER_PRIORITY_SO2,
+                                         0);
+      break;
+
+    case SENS_TYPE_CO2:
+      timeoutTicks = sl_sleeptimer_ms_to_tick(SENS_TIMEOUT_MS_CO2);
+      status = sl_sleeptimer_start_timer(&hInitTimerCo2,
+                                         timeoutTicks,
+                                         Sens_cbInitTimer,
+                                         NULL,
+                                         SENS_TIMER_PRIORITY_CO2,
+                                         0);
+      break;
+  }
+  return status;
+}
+
+
+sl_status_t Sens_stopInitTimer(SENS_Type_t type){
+  sl_status_t status = SL_STATUS_FAIL;
+
+  switch (type){
+    case SENS_TYPE_SO2:
+      status = sl_sleeptimer_stop_timer(&hInitTimerSo2);
+      break;
+
+    case SENS_TYPE_CO2:
+      status = sl_sleeptimer_stop_timer(&hInitTimerCo2);
+          break;
+  }
+  return status;
+}
+
+
+sl_status_t Sens_stopMeasTimer(Comm_Device_t device){
   sl_status_t status;
   if (device == COMM_DEVICE_SO2){
-      status = sl_sleeptimer_stop_timer(&hSo2Timer);
+      status = sl_sleeptimer_stop_timer(&hMeasTimerSo2);
   }
   else if (device == COMM_DEVICE_CO2){
-      status = sl_sleeptimer_stop_timer(&hCo2Timer);
+      status = sl_sleeptimer_stop_timer(&hMeasTimerCo2);
   }
   else{
       app_log_error("invalid device passed    ");
@@ -330,11 +416,11 @@ sl_status_t stop_timer(Comm_Device_t device){
 void sens_timer_Callback(sl_sleeptimer_timer_handle_t *handle, void *data){
   (void)data;
 
-  if (handle == &hSo2Timer){
+  if (handle == &hMeasTimerSo2){
       hSo2Config.currentState = SENS_STATUS_ERROR;
       app_log_warning("SO2 response timeout    ");
   }
-  else if (handle == &hCo2Timer){
+  else if (handle == &hMeasTimerCo2){
       hCo2Config.currentState = SENS_STATUS_ERROR;
       app_log_warning("CO2 response timeout    ");
   }
@@ -343,4 +429,32 @@ void sens_timer_Callback(sl_sleeptimer_timer_handle_t *handle, void *data){
   }
 }
 
+
+/**************************************************************************//**
+ * If sensor is not initialized before timer ends, then error is issued and
+ * init state is set to NOT_INITIALIZED
+ *****************************************************************************/
+void Sens_cbInitTimer(sl_sleeptimer_timer_handle_t *handle, void *data){
+  (void)data;
+
+    if (handle == &hInitTimerSo2){
+        if (hSo2Config.initState != SENS_INIT_INITIALIZED){
+
+            hSo2Config.initState = SENS_INIT_NOT_INITIALIZED;
+            hSo2Config.currentState = SENS_STATUS_ERROR;
+            app_log_warning("SO2 init timeout    ");
+        }
+    }
+    else if (handle == &hInitTimerCo2){
+        if (hCo2Config.initState != SENS_INIT_INITIALIZED){
+
+            hCo2Config.initState = SENS_INIT_NOT_INITIALIZED;
+            hCo2Config.currentState = SENS_STATUS_ERROR;
+            app_log_warning("CO2 init timeout    ");
+        }
+    }
+    else {
+        app_log_error("unrecognized handle    ");
+    }
+  }
 
