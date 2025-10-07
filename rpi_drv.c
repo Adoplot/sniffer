@@ -140,6 +140,7 @@ void RPI_Init_State_Handles(){
  *    @ref true/false
  ******************************************************************************/
 bool isAllInitialized(){
+#if 0
   if (SENS_isSensorInitialized(COMM_DEVICE_SO2) &&
       SENS_isSensorInitialized(COMM_DEVICE_CO2) &&
       LORA_isInitialized()) {
@@ -149,6 +150,13 @@ bool isAllInitialized(){
   else{
       return false;
   }
+#else
+  if (SENS_isSensorInitialized(COMM_DEVICE_SO2)){
+      return true;
+  }else{
+      return false;
+  }
+#endif
 }
 
 

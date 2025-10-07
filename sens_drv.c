@@ -43,11 +43,11 @@ static sl_status_t sens_handle_co2(Comm_Msg_t *msg);
 static SENS_Handle_t* select_device(Comm_Device_t device);
 static sl_status_t parse_measured_values(Comm_Msg_t *msg, SENS_Handle_t *handle);
 static sl_status_t sens_send(Comm_Device_t device, SENS_Cmd_t cmd);
-static sl_status_t Sens_startMeasTimer(Comm_Device_t device);
-static sl_status_t Sens_stopMeasTimer(Comm_Device_t device);
+static sl_status_t Sens_startMeasTimer(SENS_Type_t type);
+static sl_status_t Sens_stopMeasTimer(SENS_Type_t type);
 static sl_status_t Sens_startInitTimer(SENS_Type_t type);
 static sl_status_t Sens_stopInitTimer(SENS_Type_t type);
-static void sens_timer_Callback(sl_sleeptimer_timer_handle_t *handle, void *data);
+static void Sens_cbMeasTimer(sl_sleeptimer_timer_handle_t *handle, void *data);
 static void Sens_cbInitTimer(sl_sleeptimer_timer_handle_t *handle, void *data);
 
 
@@ -134,7 +134,7 @@ void SENS_runStateMachine(Comm_Device_t device){
       //measurement ready for reading
       //waiting for lora_handler.c to copy values and mark as sent
 
-      //timer_status = Sens_stopMeasTimer(device);
+
 
       if (handle->initState == SENS_INIT_IN_PROCESS){
           //Initialization successful
@@ -143,7 +143,7 @@ void SENS_runStateMachine(Comm_Device_t device){
           handle->currentState = SENS_STATUS_IDLE;
       }
       else{
-          //stop measurement timer
+          timer_status = Sens_stopMeasTimer(handle->type);
       }
       break;
 
@@ -325,27 +325,30 @@ sl_status_t sens_send(Comm_Device_t device, SENS_Cmd_t cmd){
 }
 
 
-sl_status_t Sens_startMeasTimer(Comm_Device_t device){
-  sl_status_t status;
-  if (device == COMM_DEVICE_SO2){
-      status = sl_sleeptimer_start_periodic_timer_ms(&hMeasTimerSo2,
-                                                     SENS_TIMEOUT_MS_SO2,
-                                                     sens_timer_Callback,
-                                                     NULL,
-                                                     SENS_TIMER_PRIORITY_SO2,
-                                                     0);
-  }
-  else if (device == COMM_DEVICE_CO2){
-      status = sl_sleeptimer_start_periodic_timer_ms(&hMeasTimerCo2,
-                                                     SENS_TIMEOUT_MS_CO2,
-                                                     sens_timer_Callback,
-                                                     NULL,
-                                                     SENS_TIMER_PRIORITY_CO2,
-                                                     0);
-  }
-  else{
-      app_log_error("invalid device passed    ");
-      status = SL_STATUS_FAIL;
+sl_status_t Sens_startMeasTimer(SENS_Type_t type){
+  sl_status_t status = SL_STATUS_FAIL;
+  uint32_t timeoutTicks;
+
+  switch (type){
+    case SENS_TYPE_SO2:
+      timeoutTicks = sl_sleeptimer_ms_to_tick(SENS_TIMEOUT_MS_SO2);
+      status = sl_sleeptimer_start_timer(&hMeasTimerSo2,
+                                         timeoutTicks,
+                                         Sens_cbMeasTimer,
+                                         NULL,
+                                         SENS_TIMER_PRIORITY_SO2,
+                                         0);
+      break;
+
+    case SENS_TYPE_CO2:
+      timeoutTicks = sl_sleeptimer_ms_to_tick(SENS_TIMEOUT_MS_CO2);
+      status = sl_sleeptimer_start_timer(&hMeasTimerCo2,
+                                         timeoutTicks,
+                                         Sens_cbMeasTimer,
+                                         NULL,
+                                         SENS_TIMER_PRIORITY_CO2,
+                                         0);
+      break;
   }
   return status;
 }
@@ -396,24 +399,24 @@ sl_status_t Sens_stopInitTimer(SENS_Type_t type){
 }
 
 
-sl_status_t Sens_stopMeasTimer(Comm_Device_t device){
-  sl_status_t status;
-  if (device == COMM_DEVICE_SO2){
+sl_status_t Sens_stopMeasTimer(SENS_Type_t type){
+  sl_status_t status = SL_STATUS_FAIL;
+
+  switch (type){
+    case SENS_TYPE_SO2:
       status = sl_sleeptimer_stop_timer(&hMeasTimerSo2);
-  }
-  else if (device == COMM_DEVICE_CO2){
+      break;
+
+    case SENS_TYPE_CO2:
       status = sl_sleeptimer_stop_timer(&hMeasTimerCo2);
-  }
-  else{
-      app_log_error("invalid device passed    ");
-      status = SL_STATUS_FAIL;
+          break;
   }
   return status;
 }
 
 
 //If callback received means sensor timeout
-void sens_timer_Callback(sl_sleeptimer_timer_handle_t *handle, void *data){
+void Sens_cbMeasTimer(sl_sleeptimer_timer_handle_t *handle, void *data){
   (void)data;
 
   if (handle == &hMeasTimerSo2){
