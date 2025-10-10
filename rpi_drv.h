@@ -20,6 +20,7 @@ typedef struct{
   uint8_t buffer[256];
   uint8_t buf_len;
   uint8_t gps_buf[256];
+  uint8_t gpsBufLen;
 } RPI_Handle_t;
 
 

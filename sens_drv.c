@@ -220,6 +220,11 @@ bool SENS_isSensorInitialized(Comm_Device_t device){
 }
 
 
+void Sens_GetSensorData(void){
+
+}
+
+
 bool SENS_isMeasReady(Comm_Device_t device){
   SENS_Handle_t *handle = select_device(device);
 

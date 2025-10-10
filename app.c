@@ -15,12 +15,13 @@
  *
  ******************************************************************************/
 
-#include <rpi_drv.h>
-#include <sens_drv.h>
+#include "rpi_drv.h"
+#include "sens_drv.h"
+#include "lora_drv.h"
 #include "app_log.h"
 #include "communication.h"
 #include <string.h>
-#include <uart_drv.h>
+#include "uart_drv.h"
 
 
 /***************************************************************************//**
@@ -46,11 +47,11 @@ void app_init(void)
 void app_process_action(void)
 {
   UART_runStateMachine(sl_uartdrv_eusart_rpi_handle);
-  //UART_runStateMachine(sl_uartdrv_eusart_lora_handle);
+  UART_runStateMachine(sl_uartdrv_eusart_lora_handle);
   UART_runStateMachine(sl_uartdrv_usart_so2_handle);
 
   RPI_runStateMachine();
-
+  Lora_RunStateMachine();
   SENS_runStateMachine(COMM_DEVICE_SO2);
   //SENS_runStateMachine(COMM_DEVICE_CO2);
 

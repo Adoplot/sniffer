@@ -43,6 +43,7 @@ bool SENS_isMeasReady(Comm_Device_t device);
 sl_status_t SENS_runStateMachine(Comm_Device_t device);
 void SENS_Init_State_Handles();
 sl_status_t SENS_Handler(Comm_Msg_t msg);
+void Sens_GetSensorData(void);
 
 //TODO TEMP
 void SENS_setState(Comm_Device_t device, SENS_Status_t status);
