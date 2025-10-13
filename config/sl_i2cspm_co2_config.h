@@ -46,7 +46,7 @@
 // <1=> Fast mode (400kbit/s)
 // <2=> Fast mode plus (1Mbit/s)
 // <i> Default: 0
-#define SL_I2CSPM_CO2_SPEED_MODE      0
+#define SL_I2CSPM_CO2_SPEED_MODE      1
 // </h> end I2CSPM config
 
 // <<< end of configuration section >>>
