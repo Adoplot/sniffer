@@ -17,11 +17,14 @@
 
 #include "rpi_drv.h"
 #include "sens_drv.h"
+#include "scd41_co2.h"
 #include "lora_drv.h"
 #include "app_log.h"
 #include "communication.h"
 #include <string.h>
 #include "uart_drv.h"
+#include "sl_sleeptimer.h"  //TODO remove
+#include <limits.h> //TODO remove
 
 
 /***************************************************************************//**
@@ -34,11 +37,16 @@ void app_init(void)
   RPI_Init_State_Handles();
   SENS_Init_State_Handles();
 
+  app_log("short_min = %d", SHRT_MIN);
+  app_log("short_max = %d", SHRT_MAX);
+
   char *buf;
   buf = "initiate_recv\n";
   UART_Send(sl_uartdrv_eusart_rpi_handle, (uint8_t*)buf, 14);
 
   //Scd41_StartPeriodicMeasurement();
+  //sl_sleeptimer_delay_millisecond(5000);
+  Scd41_ReadMeasurement();
 
   //SENS_setState(COMM_DEVICE_SO2, SENS_STATUS_SEND_REQUEST);
 }
