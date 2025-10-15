@@ -19,6 +19,7 @@
 #include "sens_drv.h"
 #include "scd41_co2.h"
 #include "lora_drv.h"
+#include "scd41_co2.h"
 #include "app_log.h"
 #include "communication.h"
 #include <string.h>
@@ -36,9 +37,6 @@ void app_init(void)
   UART_Init_State_Handles();
   RPI_Init_State_Handles();
   SENS_Init_State_Handles();
-
-  app_log("short_min = %d", SHRT_MIN);
-  app_log("short_max = %d", SHRT_MAX);
 
   char *buf;
   buf = "initiate_recv\n";
@@ -58,7 +56,9 @@ void app_process_action(void)
 {
   UART_runStateMachine(sl_uartdrv_eusart_rpi_handle);
   UART_runStateMachine(sl_uartdrv_eusart_lora_handle);
+
   UART_runStateMachine(sl_uartdrv_usart_so2_handle);
+  Scd41_RunStateMachine();
 
   RPI_runStateMachine();
   Lora_RunStateMachine();

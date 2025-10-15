@@ -11,14 +11,40 @@
 
 typedef sl_status_t Scd41_I2cStatus_t;
 
+typedef enum{
+  SCD41_STATE__IDLE,
+  SCD41_STATE__START_MEASURING,
+  SCD41_STATE__STOP_MEASURING,
+  SCD41_STATE__IN_MEASURING_MODE,
+  SCD41_STATE__REQUEST_VALUE,
+  SCD41_STATE__WAITING,
+  SCD41_STATE__VALUE_READY,
+  SCD41_STATE__ERROR
+} Scd41_State_t;
+
+typedef enum{
+  SCD41_INIT__NOT_INITIALIZED,
+  SCD41_INIT__IN_PROCESS,
+  SCD41_INIT__INITIALIZED
+} Scd41_Init_t;
+
 typedef struct{
   int16_t co2Ppm;       // ppm
   int16_t temp_x100;    // C/100
   int16_t rh_x100;      // %RH/100
 } Scd41_Data_t;
 
+typedef struct{
+  Scd41_State_t currentState;
+  Scd41_Init_t  initState;
+  Scd41_Data_t  data;
+} Scd41_Config_t;
+
+sl_status_t Scd41_RunStateMachine(void);
+void Scd41_InitializeConfiguration(void);
 Scd41_I2cStatus_t Scd41_StartPeriodicMeasurement(void);
 Scd41_I2cStatus_t Scd41_ReadMeasurement(void);
+Scd41_I2cStatus_t Scd41_StopPeriodicMeasurement(void);
 
 
 #endif /* SCD41_CO2_H_ */

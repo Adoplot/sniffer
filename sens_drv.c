@@ -256,6 +256,10 @@ void SENS_Init_State_Handles(){
   hCo2Config.temperature = 0;
   hCo2Config.humidity = 0;
   strcpy(hCo2Config.printType, "CO2");
+  //TODO
+  //Dgs2_InitializeConfiguration();
+
+  Scd41_InitializeConfiguration();
 }
 
 
