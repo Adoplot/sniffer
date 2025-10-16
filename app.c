@@ -17,11 +17,15 @@
 
 #include "rpi_drv.h"
 #include "sens_drv.h"
+#include "scd41_co2.h"
 #include "lora_drv.h"
+#include "scd41_co2.h"
 #include "app_log.h"
 #include "communication.h"
 #include <string.h>
 #include "uart_drv.h"
+#include "sl_sleeptimer.h"  //TODO remove
+#include <limits.h> //TODO remove
 
 
 /***************************************************************************//**
@@ -48,7 +52,9 @@ void app_process_action(void)
 {
   UART_runStateMachine(sl_uartdrv_eusart_rpi_handle);
   UART_runStateMachine(sl_uartdrv_eusart_lora_handle);
+
   UART_runStateMachine(sl_uartdrv_usart_so2_handle);
+  Scd41_RunStateMachine();
 
   RPI_runStateMachine();
   Lora_RunStateMachine();

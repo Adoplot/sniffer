@@ -23,8 +23,9 @@ typedef struct {
 } SENS_Cmd_Buf_t;
 
 typedef enum{
+  //SO2 commands
   SENS_CMD_GET_VALUE_SO2,
-  SENS_CMD_CONTINIOUS_MEAS_SO2,
+  //Other
   SENS_CMD_UNKNOWN,
   SENS_CMD_COUNT
 } SENS_Cmd_t;
@@ -255,6 +256,10 @@ void SENS_Init_State_Handles(){
   hCo2Config.temperature = 0;
   hCo2Config.humidity = 0;
   strcpy(hCo2Config.printType, "CO2");
+  //TODO
+  //Dgs2_InitializeConfiguration();
+
+  Scd41_InitializeConfiguration();
 }
 
 
