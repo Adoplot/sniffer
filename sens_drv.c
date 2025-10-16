@@ -3,6 +3,7 @@
  */
 
 #include <sens_drv.h>
+#include "scd41_co2.h"
 #include <string.h>
 #include <uart_drv.h>
 #include <stdbool.h>
