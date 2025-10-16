@@ -6,6 +6,7 @@
 #include "sl_uartdrv_instances.h"
 #include "app_log.h"
 #include "communication.h"
+#include "dgs2_so2.h"
 
 #define UART_RESEND_TRIES_NUM   3   //how many times uart tries to resend (if failed) before setting error state
 
@@ -191,7 +192,7 @@ sl_status_t call_handler(Uart_Handle_t *stateHandle, uint8_t *buf, uint8_t *buf_
       msg.data.buf_len = stateHandle->rxBuf_len;
       msg.device = COMM_DEVICE_SO2;
 
-      status = SENS_Handler(msg);  //TODO
+      status = Dgs2_Handler(msg);
       if (!status){
           stateHandle->currentState = UART_STATE_END;
       }else{

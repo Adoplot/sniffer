@@ -16,7 +16,7 @@
 #define SENS_TIMER_PRIORITY_SO2     0
 #define SENS_TIMER_PRIORITY_CO2     1
 
-#define SENS_SERIAL_NUM             "092822010140"
+
 
 typedef struct {
   char *data;
