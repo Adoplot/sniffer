@@ -79,7 +79,7 @@
 
 // <q APP_LOG_TRACE_ENABLE> Trace
 // <i> Enables printing file, line and function information.
-#define APP_LOG_TRACE_ENABLE      0
+#define APP_LOG_TRACE_ENABLE      1
 
 // <q APP_LOG_TIME_ENABLE> Timestamp
 // <i> Enables printing timestamp
