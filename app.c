@@ -42,10 +42,6 @@ void app_init(void)
   buf = "initiate_recv\n";
   UART_Send(sl_uartdrv_eusart_rpi_handle, (uint8_t*)buf, 14);
 
-  //Scd41_StartPeriodicMeasurement();
-  //sl_sleeptimer_delay_millisecond(5000);
-  Scd41_ReadMeasurement();
-
   //SENS_setState(COMM_DEVICE_SO2, SENS_STATUS_SEND_REQUEST);
 }
 
