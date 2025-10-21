@@ -60,6 +60,7 @@ static const uint16_t Scd41_getCmdCode[SCD41_CMD__COUNT] = {
 
 static Scd41_Config_t hSensor;
 static sl_sleeptimer_timer_handle_t hTimer;
+//TODO add response timeout
 
 static void Scd41_initialize(void);
 static Scd41_I2cStatus_t Scd41_i2cWriteCmd(I2C_TransferSeq_TypeDef *seq, Scd41_Cmd_t cmd);
@@ -141,12 +142,7 @@ sl_status_t Scd41_RunStateMachine(void){
 
 
     case SCD41_STATE__WAITING_FOR_MEASUREMENT:
-      // waiting ReadyToRead timer callback to switch to READY_TO_READ state (500ms)
-      status = SL_STATUS_OK;
-      break;
-
-
-    case SCD41_STATE__READY_TO_READ:
+      // waiting ReadyToRead timer callback to switch to READ state (5000ms)
       status = SL_STATUS_OK;
       break;
 
@@ -199,6 +195,7 @@ sl_status_t Scd41_RunStateMachine(void){
 void Scd41_InitializeConfiguration(void){
   hSensor.currentState = SCD41_STATE__IDLE;
   hSensor.initState = SCD41_INIT__NOT_INITIALIZED;
+  hSensor.isMeasReady = false;
   hSensor.data.co2Ppm = 0;
   hSensor.data.temp_x100 = 0;
   hSensor.data.rh_x100 = 0;
@@ -206,15 +203,15 @@ void Scd41_InitializeConfiguration(void){
 
 
 void Scd41_initialize(void){
+  // during first run the sensor is NOT_INIT and it goes to STOP_MEAS to reset sensor
+  // to idle state, marking that INIT_IN_PROCESS
+  // on the second run measuring and data reading is performed to check the sensor
   if (hSensor.initState == SCD41_INIT__IN_PROCESS){
       hSensor.currentState = SCD41_STATE__START_MEASURING;
   }else{
       //reset sensor to idle state
       hSensor.currentState = SCD41_STATE__STOP_MEASURING;
   }
-
-
-  //hSensor.initState = SCD41_INIT__INITIALIZED;
 }
 
 
@@ -224,6 +221,20 @@ bool Scd41_isInitialized(void){
   }else{
       return false;
   }
+}
+
+
+bool Scd41_isMeasReady(void){
+  if (hSensor.isMeasReady == true){
+      return true;
+  }else{
+      return false;
+  }
+}
+
+
+void Scd41_SetState(Scd41_State_t state){
+  hSensor.currentState = state;
 }
 
 
@@ -331,6 +342,7 @@ Scd41_I2cStatus_t Scd41_ReadMeasurement(void){
   if (status == SL_STATUS_OK){
       // Has to wait for sensor to prepare data for reading
       sl_sleeptimer_delay_millisecond(SCD41__READ_DATA_TIMEOUT_MS);
+      //whole func takes 1.42ms, so delay 1ms is ok (or 2nd timer should be introduced)
 
       uint8_t rxDataLen = sizeof(rxData) / sizeof(rxData[0]);
       status = Scd41_i2cRead(&seq, rxData , rxDataLen);
@@ -415,6 +427,7 @@ sl_status_t Scd41_startTimer(uint8_t timeout, sl_sleeptimer_timer_callback_t cal
 
 
 // Checks if timer is running and then stops it
+//TODO make common func
 sl_status_t Scd41_stopTimer(sl_sleeptimer_timer_handle_t *handle){
   sl_status_t status = SL_STATUS_FAIL;
   bool isRunning;

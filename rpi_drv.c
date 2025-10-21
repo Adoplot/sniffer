@@ -4,7 +4,8 @@
 
 #include <lora_drv.h>
 #include <rpi_drv.h>
-#include <sens_drv.h>
+#include "dgs2_so2.h"
+#include "scd41_co2.h"
 #include "app_log.h"
 #include <string.h>
 #include <uart_drv.h>
@@ -45,6 +46,7 @@ static bool isAllInitialized();
 static void handle_init(uint8_t *pBuf, uint8_t *pBufLen);
 static sl_status_t handle_start(Rpi_Msg_t *rpi_msg, uint8_t *pBuf, uint8_t *pBufLen);
 static void Rpi_reply(Rpi_Cmd_t cmd, uint8_t *pBuf, uint8_t *pBufLen);
+static bool Rpi_isMeasReady();
 
 
 const Rpi_CmdBuf_t rpi_get_cmd_buf[RPI_CMD_COUNT] = {
@@ -80,27 +82,25 @@ sl_status_t RPI_runStateMachine(){
       status = SL_STATUS_OK;
       break;
 
-
     case RPI_STATUS_MEASURING:
       //check if both measurements are ready
+
       //TODO check both sensors
-#if 0
-      if ((SENS_isMeasReady(COMM_DEVICE_SO2)) &&
-          (SENS_isMeasReady(COMM_DEVICE_CO2))) {
+      if (Rpi_isMeasReady()) {
           hRpiConfig.currentState = RPI_STATUS_MEAS_READY;
       }
-#else
-      if (SENS_isMeasReady(COMM_DEVICE_SO2)) {
-          hRpiConfig.currentState = RPI_STATUS_MEAS_READY;
-      }
-#endif
+
       status = SL_STATUS_OK;
       break;
 
 
     case RPI_STATUS_MEAS_READY:
       //Initiate sending via Lora
-      Lora_SetState(LORA_STATUS__SEND_DATA);
+      Dgs2_SetState(DGS2_STATE__IDLE);
+
+
+      //TODO send data to Lora
+      //Lora_SetState(LORA_STATUS__SEND_DATA);
 
       hRpiConfig.currentState = RPI_STATUS_SENDING;
       status = SL_STATUS_OK;
@@ -154,7 +154,8 @@ bool isAllInitialized(){
       return false;
   }
 #else
-  if (SENS_isSensorInitialized(COMM_DEVICE_SO2)){
+  if ((Dgs2_isInitialized()) &&
+      (Scd41_isInitialized())){
       return true;
   }else{
       return false;
@@ -167,17 +168,9 @@ bool isAllInitialized(){
  * @brief
  *    Checks if all sensors and the lora module are initialized
  ******************************************************************************/
-bool isMeasReady(){
+bool Rpi_isMeasReady(){
 
-  if (SENS_isSensorInitialized(COMM_DEVICE_SO2) &&
-      SENS_isSensorInitialized(COMM_DEVICE_CO2) &&
-      LORA_isInitialized()) {
-
-      return true;
-  }
-  else{
-      return false;
-  }
+return false;
 }
 
 
@@ -258,8 +251,7 @@ sl_status_t RPI_Handler(Comm_Msg_t msg, uint8_t *pBuf, uint8_t *pBufLen){
           hRpiConfig.currentState == RPI_STATUS_SENDING   ||
           hRpiConfig.currentState == RPI_STATUS_SENT        ){
 
-          //SENS_setState(COMM_DEVICE_SO2, SENS_STATUS_STOP_CYCLIC_MEASUREMENT);
-          //SENS_setState(COMM_DEVICE_CO2, SENS_STATUS_STOP_CYCLIC_MEASUREMENT);
+          //
 
           hRpiConfig.currentState = RPI_STATUS_MEASURING;
 
@@ -312,6 +304,10 @@ void handle_init(uint8_t *pBuf, uint8_t *pBufLen){
   if (isAllInitialized()){
 
       Rpi_reply(RPI_CMD_INIT_READY, pBuf, pBufLen);
+
+      Scd41_SetState(SCD41_STATE__START_MEASURING); // start periodic meas for CO2
+      // TODO turn on only when measuring
+
       hRpiConfig.currentState = RPI_STATUS_IDLE;
 
   }else{
@@ -329,8 +325,9 @@ sl_status_t handle_start(Rpi_Msg_t *rpi_msg, uint8_t *pBuf, uint8_t *pBufLen){
 
     case RPI_STATUS_IDLE:
       //Request measurement from sensors
-      SENS_setState(COMM_DEVICE_SO2, SENS_STATUS_SEND_REQUEST);
-      SENS_setState(COMM_DEVICE_CO2, SENS_STATUS_SEND_REQUEST);
+      //SENS_setState(COMM_DEVICE_SO2, SENS_STATUS_SEND_REQUEST);
+      //SENS_setState(COMM_DEVICE_CO2, SENS_STATUS_SEND_REQUEST);
+      Dgs2_SetState(DGS2_STATE__SEND_REQUEST);
 
       Rpi_reply(RPI_CMD_START_ACK, pBuf, pBufLen);
 
@@ -380,12 +377,6 @@ void Rpi_reply(Rpi_Cmd_t cmd, uint8_t *pBuf, uint8_t *pBufLen){
   memcpy(pBuf, msg.data, msg.length);
   *pBufLen = msg.length;
 }
-
-
-void Rpi_SetStatusIdle(void){
-  hRpiConfig.currentState = RPI_STATUS_IDLE;
-}
-
 
 
 
