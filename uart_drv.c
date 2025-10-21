@@ -1,5 +1,4 @@
 #include <rpi_drv.h>
-#include <sens_drv.h>
 #include <string.h>
 #include <uart_drv.h>
 #include "uartdrv.h"

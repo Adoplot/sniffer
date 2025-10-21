@@ -17,7 +17,6 @@ typedef enum{
   SCD41_STATE__STOP_MEASURING,
   SCD41_STATE__WAITING_STOP,
   SCD41_STATE__WAITING_FOR_MEASUREMENT,
-  SCD41_STATE__READY_TO_READ, //TODO del
   SCD41_STATE__READ,
   SCD41_STATE__ERROR
 } Scd41_State_t;
@@ -37,6 +36,7 @@ typedef struct{
 typedef struct{
   Scd41_State_t currentState;
   Scd41_Init_t  initState;
+  bool          isMeasReady;
   Scd41_Data_t  data;
 } Scd41_Config_t;
 
@@ -48,6 +48,7 @@ Scd41_I2cStatus_t Scd41_StartPeriodicMeasurement(void);
 Scd41_I2cStatus_t Scd41_ReadMeasurement(void);
 Scd41_I2cStatus_t Scd41_StopPeriodicMeasurement(void);
 Scd41_I2cStatus_t Scd41_measureSingleShot(void);
+void Scd41_SetState(Scd41_State_t state);
 
 
 #endif /* SCD41_CO2_H_ */

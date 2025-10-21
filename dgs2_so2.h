@@ -34,6 +34,7 @@ typedef struct{
 typedef struct{
   Dgs2_State_t  currentState;
   Dgs2_Init_t   initState;
+  bool          isMeasReady;
   Dgs2_Data_t   data;
   uint8_t       buf[256];
   uint8_t       bufLen;
@@ -41,6 +42,7 @@ typedef struct{
 
 
 sl_status_t Dgs2_RunStateMachine(void);
+void Dgs2_SetState(Dgs2_State_t state);
 sl_status_t Dgs2_Handler(Comm_Msg_t msg);
 void Dgs2_InitializeConfiguration(void);
 bool Dgs2_isInitialized(void);

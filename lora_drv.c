@@ -6,7 +6,6 @@
 #include "communication.h"
 #include <string.h>
 #include "uart_drv.h"
-#include "sens_drv.h"
 
 
 #define LORA_PARAM_PFREQ	"868000000"   //Frequency
@@ -60,8 +59,7 @@ sl_status_t Lora_RunStateMachine(){
 
 
     case LORA_STATUS__SEND_DATA:
-      //get data from sensors
-      Sens_GetSensorData();
+      //get all data from rpi
       status = SL_STATUS_OK;
       break;
 

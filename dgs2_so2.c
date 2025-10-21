@@ -84,36 +84,48 @@ sl_status_t Dgs2_RunStateMachine(void){
     case DGS2_STATE__REQUESTED:
       //waiting for answer from sensor
       //answer handled in Dgs2_Handler()
+      hSensor.isMeasReady = false;    //resetting "ready" flag because new meas requested
       status = SL_STATUS_OK;
       break;
 
 
     case DGS2_STATE__MEAS_READY:
-
-      // Initialization successful
-      if (hSensor.initState == DGS2_INIT__IN_PROCESS){
-          hSensor.initState = DGS2_INIT__INITIALIZED;
-      }
-
+      //measurement is ready, stop timeout timer, set flag to ready
+      //or if initializing then set to initialized
       status = Dgs2_stopTimer(&hTimer);
 
       if (status == SL_STATUS_OK){
-          hSensor.currentState = DGS2_STATE__IDLE;
+          hSensor.isMeasReady = true;
+          // Waiting for Rpi to read and set to Idle state
+          //hSensor.currentState = DGS2_STATE__IDLE;
+
       }else{
           hSensor.currentState = DGS2_STATE__ERROR;
       }
 
+      // Initialization successful
+      if (hSensor.initState == DGS2_INIT__IN_PROCESS){
+          hSensor.isMeasReady = false;  // rewrite flag to false when initializing
+          hSensor.initState = DGS2_INIT__INITIALIZED;
+      }
       break;
 
 
     case DGS2_STATE__ERROR:
       status = Dgs2_stopTimer(&hTimer);
 
+      hSensor.isMeasReady = false;
+
       app_log_error("SO2 general error");
       hSensor.currentState = DGS2_STATE__IDLE;
       break;
   }
   return status;
+}
+
+
+void Dgs2_SetState(Dgs2_State_t state){
+  hSensor.currentState = state;
 }
 
 
@@ -142,6 +154,7 @@ sl_status_t Dgs2_Handler(Comm_Msg_t msg){
 void Dgs2_InitializeConfiguration(void){
   hSensor.currentState = DGS2_STATE__IDLE;
   hSensor.initState = DGS2_INIT__NOT_INITIALIZED;
+  hSensor.isMeasReady = false;
   hSensor.data.so2Ppb = 0;
   hSensor.data.temp_x100 = 0;
   hSensor.data.rh_x100 = 0;
@@ -157,6 +170,15 @@ void Dgs2_initialize(){
 
 bool Dgs2_isInitialized(void){
   if (hSensor.initState == DGS2_INIT__INITIALIZED){
+      return true;
+  }else{
+      return false;
+  }
+}
+
+
+bool Dgs2_isMeasReady(void){
+  if (hSensor.isMeasReady == true){
       return true;
   }else{
       return false;

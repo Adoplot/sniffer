@@ -16,7 +16,6 @@
  ******************************************************************************/
 
 #include "rpi_drv.h"
-#include "sens_drv.h"
 #include "scd41_co2.h"
 #include "lora_drv.h"
 #include "scd41_co2.h"
@@ -37,7 +36,8 @@ void app_init(void)
   app_log("....Starting application    ");
   UART_Init_State_Handles();
   RPI_Init_State_Handles();
-  SENS_Init_State_Handles();
+  Scd41_InitializeConfiguration();
+  Dgs2_InitializeConfiguration();
 
   char *buf;
   buf = "initiate_recv\n";
