@@ -28,7 +28,7 @@ typedef enum{
 } Scd41_Init_t;
 
 typedef struct{
-  int16_t co2Ppm;       // ppm
+  uint16_t co2Ppm;      // ppm
   int16_t temp_x100;    // C/100
   int16_t rh_x100;      // %RH/100
 } Scd41_Data_t;
