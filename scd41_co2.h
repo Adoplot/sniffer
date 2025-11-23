@@ -49,6 +49,7 @@ Scd41_I2cStatus_t Scd41_ReadMeasurement(void);
 Scd41_I2cStatus_t Scd41_StopPeriodicMeasurement(void);
 Scd41_I2cStatus_t Scd41_measureSingleShot(void);
 void Scd41_SetState(Scd41_State_t state);
+void Scd41_GetData(Scd41_Data_t *sensorData);
 
 
 #endif /* SCD41_CO2_H_ */

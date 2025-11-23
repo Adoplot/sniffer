@@ -238,6 +238,11 @@ void Scd41_SetState(Scd41_State_t state){
 }
 
 
+void Scd41_GetData(Scd41_Data_t *sensorData){
+  (void)sensorData;
+  *sensorData = hSensor.data;
+}
+
 /***************************************************************************//**
  * @brief
  *    Transmits SCD41 command via I2C
