@@ -19,7 +19,7 @@
 #include "scd41_co2.h"
 #include "lora_drv.h"
 #include "scd41_co2.h"
-#include "dgs2_so2.h"
+#include "dfr_so2.h"
 #include "app_log.h"
 #include "communication.h"
 #include <string.h>
@@ -37,7 +37,7 @@ void app_init(void)
   UART_Init_State_Handles();
   RPI_Init_State_Handles();
   Scd41_InitializeConfiguration();
-  Dgs2_InitializeConfiguration();
+  Dfr_InitializeConfiguration();
 
   char *buf;
   buf = "initiate_recv\n";
@@ -56,7 +56,7 @@ void app_process_action(void)
   UART_runStateMachine(sl_uartdrv_usart_so2_handle);
 
   Scd41_RunStateMachine();
-  Dgs2_RunStateMachine();
+  Dfr_RunStateMachine();
 
   RPI_runStateMachine();
   Lora_RunStateMachine();

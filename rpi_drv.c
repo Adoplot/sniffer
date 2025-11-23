@@ -4,7 +4,7 @@
 
 #include <lora_drv.h>
 #include <rpi_drv.h>
-#include "dgs2_so2.h"
+#include "dfr_so2.h"
 #include "scd41_co2.h"
 #include "app_log.h"
 #include <string.h>
@@ -96,7 +96,7 @@ sl_status_t RPI_runStateMachine(){
 
     case RPI_STATUS_MEAS_READY:
       //Initiate sending via Lora
-      Dgs2_SetState(DGS2_STATE__IDLE);
+      Dfr_SetState(DFR_STATE__IDLE);
 
 
       //TODO send data to Lora
@@ -154,7 +154,7 @@ bool isAllInitialized(){
       return false;
   }
 #else
-  if ((Dgs2_isInitialized()) &&
+  if ((Dfr_isInitialized()) &&
       (Scd41_isInitialized())){
       return true;
   }else{
@@ -325,9 +325,7 @@ sl_status_t handle_start(Rpi_Msg_t *rpi_msg, uint8_t *pBuf, uint8_t *pBufLen){
 
     case RPI_STATUS_IDLE:
       //Request measurement from sensors
-      //SENS_setState(COMM_DEVICE_SO2, SENS_STATUS_SEND_REQUEST);
-      //SENS_setState(COMM_DEVICE_CO2, SENS_STATUS_SEND_REQUEST);
-      Dgs2_SetState(DGS2_STATE__SEND_REQUEST);
+      Dfr_SetState(DFR_STATE__SEND_REQUEST);
 
       Rpi_reply(RPI_CMD_START_ACK, pBuf, pBufLen);
 

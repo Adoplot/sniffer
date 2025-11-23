@@ -5,11 +5,13 @@
 #include "sl_uartdrv_instances.h"
 #include "app_log.h"
 #include "communication.h"
-#include "dgs2_so2.h"
+#include "dfr_so2.h"
 
 #define UART_RESEND_TRIES_NUM   3   //how many times uart tries to resend (if failed) before setting error state
+#define UART__SO2_MSG_LENGTH_IN_BYTES 9
 
 static Uart_Handle_t  rpi_handle, lora_handle, so2_handle;
+static int byteCounterSo2 = 0;
 
 static Uart_Handle_t* select_state_handle(struct UARTDRV_HandleData *handle);
 static sl_status_t call_handler(Uart_Handle_t *stateHandle, uint8_t *buf, uint8_t *buf_len);
@@ -191,7 +193,7 @@ sl_status_t call_handler(Uart_Handle_t *stateHandle, uint8_t *buf, uint8_t *buf_
       msg.data.buf_len = stateHandle->rxBuf_len;
       msg.device = COMM_DEVICE_SO2;
 
-      status = Dgs2_Handler(msg);
+      status = Dfr_Handler(msg);
       if (!status){
           stateHandle->currentState = UART_STATE_END;
       }else{
@@ -355,19 +357,24 @@ void process_Rx_data(Uart_Handle_t *stateHandle, uint8_t *data){
     case UART_TYPE_SO2:
 
       //Null-terminate if end of msg received
-      if (*data == '\n') {
+      if (byteCounterSo2 >= UART__SO2_MSG_LENGTH_IN_BYTES-1) {
+          stateHandle->rxDataBuf[*index] = *data;
+          (*index)++;
           stateHandle->rxBuf_len = *index;
           stateHandle->currentState = UART_STATE_SUCCESS;
-          app_log("%s recv message: %s    ", stateHandle->printType, stateHandle->rxDataBuf);
+          byteCounterSo2 = 0;
+          //app_log("%s recv message: %s    ", stateHandle->printType, stateHandle->rxDataBuf);
       }
       else {
           if (*index < UART_DATA_BUF_SIZE - 1) {
               stateHandle->rxDataBuf[*index] = *data;
               //app_log_append("%c", *data);
               (*index)++;
+              byteCounterSo2++;
           } else {
               //reset if overflow
               *index = 0;
+              byteCounterSo2 = 0;
               stateHandle->currentState = UART_STATE_ERROR;
               app_log_error("recv buffer overflow on %s, resetting index    ", stateHandle->printType);
           }
