@@ -28,7 +28,7 @@ typedef enum{
 } Scd41_Init_t;
 
 typedef struct{
-  int16_t co2Ppm;       // ppm
+  uint16_t co2Ppm;      // ppm
   int16_t temp_x100;    // C/100
   int16_t rh_x100;      // %RH/100
 } Scd41_Data_t;
@@ -49,6 +49,7 @@ Scd41_I2cStatus_t Scd41_ReadMeasurement(void);
 Scd41_I2cStatus_t Scd41_StopPeriodicMeasurement(void);
 Scd41_I2cStatus_t Scd41_measureSingleShot(void);
 void Scd41_SetState(Scd41_State_t state);
+void Scd41_GetData(Scd41_Data_t *sensorData);
 
 
 #endif /* SCD41_CO2_H_ */

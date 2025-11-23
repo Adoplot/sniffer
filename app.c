@@ -20,6 +20,7 @@
 #include "lora_drv.h"
 #include "scd41_co2.h"
 #include "dfr_so2.h"
+#include "manager.h"
 #include "app_log.h"
 #include "communication.h"
 #include <string.h>
@@ -38,6 +39,7 @@ void app_init(void)
   RPI_Init_State_Handles();
   Scd41_InitializeConfiguration();
   Dfr_InitializeConfiguration();
+  Manager_InitializeConfiguration();
 
   char *buf;
   buf = "initiate_recv\n";
@@ -58,7 +60,8 @@ void app_process_action(void)
   Scd41_RunStateMachine();
   Dfr_RunStateMachine();
 
-  RPI_runStateMachine();
+  Manager_RunStateMachine();
+  //RPI_runStateMachine();
   Lora_RunStateMachine();
   //SENS_runStateMachine(COMM_DEVICE_SO2);
   //SENS_runStateMachine(COMM_DEVICE_CO2);

@@ -170,7 +170,7 @@ sl_status_t Scd41_RunStateMachine(void){
           if (status == SL_STATUS_OK){
               hSensor.initState = SCD41_INIT__INITIALIZED;
               //Reset to IDLE
-              hSensor.currentState = SCD41_STATE__STOP_MEASURING;
+              //hSensor.currentState = SCD41_STATE__STOP_MEASURING; //TODO keep measuring after init (for field tests)
           }else{
               hSensor.initState = SCD41_INIT__NOT_INITIALIZED;
           }
@@ -237,6 +237,11 @@ void Scd41_SetState(Scd41_State_t state){
   hSensor.currentState = state;
 }
 
+
+void Scd41_GetData(Scd41_Data_t *sensorData){
+  (void)sensorData;
+  *sensorData = hSensor.data;
+}
 
 /***************************************************************************//**
  * @brief
@@ -351,9 +356,9 @@ Scd41_I2cStatus_t Scd41_ReadMeasurement(void){
   if (status == SL_STATUS_OK){
       Scd41_parseSensorData(rxData, (sizeof(rxData) / sizeof(rxData[0])), &hSensor.data);
 
-      app_log("Co2 = %d ppm | ", hSensor.data.co2Ppm);
-      app_log_append("T = %.2f C | ", hSensor.data.temp_x100/100.0);
-      app_log_append("RH = %.2f %%", hSensor.data.rh_x100/100.0);
+      //app_log("Co2 = %d ppm | ", hSensor.data.co2Ppm);
+      //app_log_append("T = %.2f C | ", hSensor.data.temp_x100/100.0);
+      //app_log_append("RH = %.2f %%", hSensor.data.rh_x100/100.0);
   }else{
       app_log_warning("fail reading from CO2");
   }
@@ -387,21 +392,21 @@ void Scd41_parseSensorData(uint8_t *pBuf, uint16_t bufLen, Scd41_Data_t *sensorD
   uint16_t rawTemp    = ((pBuf[3] << 8) | pBuf[4]);
   uint16_t rawRh      = ((pBuf[6] << 8) | pBuf[7]);
 
-  if (rawCo2 <= SHRT_MAX){
+  if (rawCo2 <= USHRT_MAX){
       sensorData->co2Ppm = (int16_t)rawCo2;
   }else{
       rawCo2 = 0;
       app_log_error("overflow when reading CO2 value");
   }
 
-  if (rawTemp <= SHRT_MAX){
+  if (rawTemp <= USHRT_MAX){
       sensorData->temp_x100 = (int16_t)(((int32_t)17500 * rawTemp) / 65535 - 4500);
   }else{
       rawTemp = 0;
       app_log_error("overflow when reading Temp value");
   }
 
-  if (rawRh <= SHRT_MAX){
+  if (rawRh <= USHRT_MAX){
        sensorData->rh_x100 = (int16_t)(((int32_t)10000 * rawRh)  / 65535);
    }else{
        rawRh = 0;
@@ -478,7 +483,7 @@ void Scd41_cbTimerReadyToRead(sl_sleeptimer_timer_handle_t *handle, void *data){
 
   if (hSensor.currentState == SCD41_STATE__WAITING_FOR_MEASUREMENT){
       hSensor.currentState = SCD41_STATE__READ;
-      app_log("CO2 is ready to read");
+      //app_log("CO2 is ready to read");
 
   }else{
       hSensor.currentState = SCD41_STATE__ERROR;
