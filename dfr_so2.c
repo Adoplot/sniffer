@@ -174,7 +174,7 @@ sl_status_t Dfr_Handler(Comm_Msg_t msg){
 
 void Dfr_InitializeConfiguration(void){
   hSensor.currentState = DFR_STATE__IDLE;
-  hSensor.initState = DFR_INIT__NOT_INITIALIZED;
+  hSensor.initState = DFR_INIT__INITIALIZED;  //TODO skip init sequence for now
   hSensor.isMeasReady = false;
   hSensor.data.so2Ppb = 0;
   hSensor.data.temp_x100 = 0;
