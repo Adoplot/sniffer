@@ -351,9 +351,9 @@ Scd41_I2cStatus_t Scd41_ReadMeasurement(void){
   if (status == SL_STATUS_OK){
       Scd41_parseSensorData(rxData, (sizeof(rxData) / sizeof(rxData[0])), &hSensor.data);
 
-      app_log("Co2 = %d ppm | ", hSensor.data.co2Ppm);
-      app_log_append("T = %.2f C | ", hSensor.data.temp_x100/100.0);
-      app_log_append("RH = %.2f %%", hSensor.data.rh_x100/100.0);
+      //app_log("Co2 = %d ppm | ", hSensor.data.co2Ppm);
+      //app_log_append("T = %.2f C | ", hSensor.data.temp_x100/100.0);
+      //app_log_append("RH = %.2f %%", hSensor.data.rh_x100/100.0);
   }else{
       app_log_warning("fail reading from CO2");
   }
@@ -478,7 +478,7 @@ void Scd41_cbTimerReadyToRead(sl_sleeptimer_timer_handle_t *handle, void *data){
 
   if (hSensor.currentState == SCD41_STATE__WAITING_FOR_MEASUREMENT){
       hSensor.currentState = SCD41_STATE__READ;
-      app_log("CO2 is ready to read");
+      //app_log("CO2 is ready to read");
 
   }else{
       hSensor.currentState = SCD41_STATE__ERROR;
