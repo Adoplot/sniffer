@@ -144,6 +144,12 @@ void Dfr_SetState(Dfr_State_t state){
 }
 
 
+void Dfr_GetData(Dfr_Data_t *sensorData){
+  (void)sensorData;
+  *sensorData = hSensor.data;
+}
+
+
 /***************************************************************************//**
  * @brief
  *    Handles msg received from UART driver

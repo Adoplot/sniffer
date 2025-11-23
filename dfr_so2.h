@@ -26,7 +26,7 @@ typedef enum{
 } Dfr_Init_t;
 
 typedef struct{
-  int16_t so2Ppb;       // ppb
+  uint16_t so2Ppb;      // ppb
   int16_t temp_x100;    // C/100
   int16_t rh_x100;      // %RH/100
 } Dfr_Data_t;
@@ -43,6 +43,7 @@ typedef struct{
 
 sl_status_t Dfr_RunStateMachine(void);
 void Dfr_SetState(Dfr_State_t state);
+void Dfr_GetData(Dfr_Data_t *sensorData);
 sl_status_t Dfr_Handler(Comm_Msg_t msg);
 void Dfr_InitializeConfiguration(void);
 bool Dfr_isInitialized(void);
