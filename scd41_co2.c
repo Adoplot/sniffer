@@ -170,7 +170,7 @@ sl_status_t Scd41_RunStateMachine(void){
           if (status == SL_STATUS_OK){
               hSensor.initState = SCD41_INIT__INITIALIZED;
               //Reset to IDLE
-              hSensor.currentState = SCD41_STATE__STOP_MEASURING;
+              //hSensor.currentState = SCD41_STATE__STOP_MEASURING; //TODO keep measuring after init (for field tests)
           }else{
               hSensor.initState = SCD41_INIT__NOT_INITIALIZED;
           }
