@@ -392,21 +392,21 @@ void Scd41_parseSensorData(uint8_t *pBuf, uint16_t bufLen, Scd41_Data_t *sensorD
   uint16_t rawTemp    = ((pBuf[3] << 8) | pBuf[4]);
   uint16_t rawRh      = ((pBuf[6] << 8) | pBuf[7]);
 
-  if (rawCo2 <= SHRT_MAX){
+  if (rawCo2 <= USHRT_MAX){
       sensorData->co2Ppm = (int16_t)rawCo2;
   }else{
       rawCo2 = 0;
       app_log_error("overflow when reading CO2 value");
   }
 
-  if (rawTemp <= SHRT_MAX){
+  if (rawTemp <= USHRT_MAX){
       sensorData->temp_x100 = (int16_t)(((int32_t)17500 * rawTemp) / 65535 - 4500);
   }else{
       rawTemp = 0;
       app_log_error("overflow when reading Temp value");
   }
 
-  if (rawRh <= SHRT_MAX){
+  if (rawRh <= USHRT_MAX){
        sensorData->rh_x100 = (int16_t)(((int32_t)10000 * rawRh)  / 65535);
    }else{
        rawRh = 0;
