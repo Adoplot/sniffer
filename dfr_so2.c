@@ -111,7 +111,7 @@ sl_status_t Dfr_RunStateMachine(void){
       if (status == SL_STATUS_OK){
           hSensor.isMeasReady = true;
           // Waiting for Rpi to read and set to Idle state
-          //hSensor.currentState = DFR_STATE__IDLE;
+          hSensor.currentState = DFR_STATE__IDLE;
 
       }else{
           hSensor.currentState = DFR_STATE__ERROR;
@@ -280,7 +280,7 @@ sl_status_t Dfr_stopTimer(sl_sleeptimer_timer_handle_t *handle){
           status = sl_sleeptimer_stop_timer(handle);
       }else{
           status = SL_STATUS_OK;
-          app_log_warning("SO2: tried to stop inactive timer");
+          //app_log_warning("SO2: tried to stop inactive timer");
       }
   }
 
