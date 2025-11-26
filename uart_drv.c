@@ -1,6 +1,7 @@
-#include <rpi_drv.h>
+#include "rpi_drv.h"
+#include "lora_drv.h"
 #include <string.h>
-#include <uart_drv.h>
+#include "uart_drv.h"
 #include "uartdrv.h"
 #include "sl_uartdrv_instances.h"
 #include "app_log.h"
@@ -8,10 +9,11 @@
 #include "dfr_so2.h"
 
 #define UART_RESEND_TRIES_NUM   3   //how many times uart tries to resend (if failed) before setting error state
-#define UART__SO2_MSG_LENGTH_IN_BYTES 9
+#define UART__SO2_MSG_LENGTH_IN_BYTES   9
+#define UART__LORA_MSG_LENGTH_IN_BYTES  6
 
 static Uart_Handle_t  rpi_handle, lora_handle, so2_handle;
-static int byteCounterSo2 = 0;
+static int byteCounterSo2   = 0;
 
 static Uart_Handle_t* select_state_handle(struct UARTDRV_HandleData *handle);
 static sl_status_t call_handler(Uart_Handle_t *stateHandle, uint8_t *buf, uint8_t *buf_len);
@@ -183,8 +185,18 @@ sl_status_t call_handler(Uart_Handle_t *stateHandle, uint8_t *buf, uint8_t *buf_
 
 
     case UART_TYPE_LORA:
-      //status = Lora_Handler();
-      status = SL_STATUS_OK; //TODO
+      // Copy buffer into msg and pass msg by value
+      memcpy(msg.data.buffer, stateHandle->rxDataBuf, stateHandle->rxBuf_len);
+      msg.data.buf_len = stateHandle->rxBuf_len;
+      msg.device = COMM_DEVICE_LORA;
+
+      status = Lora_Handler(msg, buf, buf_len);
+
+      if (!status){
+          stateHandle->currentState = UART_STATE_END;
+      }else{
+          stateHandle->currentState = UART_STATE_ERROR;
+      }
       break;
 
 
@@ -351,10 +363,28 @@ void process_Rx_data(Uart_Handle_t *stateHandle, uint8_t *data){
 
 
     case UART_TYPE_LORA:
+      //Null-terminate if end of msg received
+            if (*data == '\n') {
+                stateHandle->rxBuf_len = *index;
+                stateHandle->currentState = UART_STATE_SUCCESS;
+                //app_log("%s recv message: %s    ", stateHandle->printType, stateHandle->rxDataBuf);
+            }
+            else {
+                if (*index < UART_DATA_BUF_SIZE - 1) {
+                    stateHandle->rxDataBuf[*index] = *data;
+                    //app_log_append("%c", *data);
+                    (*index)++;
+                } else {
+                    //reset if overflow
+                    *index = 0;
+                    stateHandle->currentState = UART_STATE_ERROR;
+                    app_log_error("recv buffer overflow on %s, resetting index    ", stateHandle->printType);
+                }
+            }
       break;
 
 
-    case UART_TYPE_SO2:
+    case UART_TYPE_SO2: //TODO make timeout termination instead of byte count
 
       //Null-terminate if end of msg received
       if (byteCounterSo2 >= UART__SO2_MSG_LENGTH_IN_BYTES-1) {
