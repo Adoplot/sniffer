@@ -20,7 +20,7 @@ typedef enum{
   MANAGER_STATUS_ERROR,
 } Manager_Status_t;
 
-typedef struct{
+typedef struct __attribute__((packed)){
   uint16_t so2Ppb;
   uint16_t co2Ppm;
   uint16_t fsc;        //calculated sulfur content of the fuel
@@ -38,5 +38,7 @@ typedef struct{
 
 sl_status_t Manager_RunStateMachine();
 void Manager_InitializeConfiguration();
+void Manager_SetState(Manager_Status_t state);
+void Manager_GetData(Manager_SensorData_t *sensorData);
 
 #endif /* MANAGER_H_ */
