@@ -2,6 +2,8 @@
 #define LORA_DRV_H_
 
 #include <stdbool.h>
+#include "manager.h"
+#include "communication.h"
 #include "uart_drv.h"
 
 
@@ -22,21 +24,16 @@ typedef enum{
 typedef struct{
   Lora_State_t currentState;
   Lora_Init_t initState;
-  int32_t so2ppb;
-  int32_t so2Temperature;
-  int32_t so2Humidity;
-  int32_t co2Ppm;
-  int32_t co2Temperature;
-  int32_t co2Humidity;
-  uint8_t gpsBuf[256];
-  uint8_t gpsBufLen;
-  uint8_t loraBuf[512];
-  uint16_t loraBufLen;
+  uint8_t payload[256];
+  uint8_t payload_len;
 } Lora_Config_t;
 
+
+
 sl_status_t Lora_RunStateMachine();
+sl_status_t Lora_Handler(Comm_Msg_t msg, uint8_t *pBuf, uint8_t *pBufLen);
 void Lora_SetState(Lora_State_t state);
-void LORA_Init_State_Handles();
+void LORA_InitializeConfiguration();
 bool LORA_isInitialized();
 
 
