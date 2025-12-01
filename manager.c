@@ -11,7 +11,7 @@
 #include "app_log.h"
 #include "sl_sleeptimer.h"
 
-#define MANAGER__TIME_BETWEEN_MEAS_MS  6000
+#define MANAGER__TIME_BETWEEN_MEAS_MS  1000
 
 static sl_sleeptimer_timer_handle_t hTimer;
 static Manager_Handle_t hConfig;
@@ -34,6 +34,7 @@ sl_status_t Manager_RunStateMachine(){
       status = SL_STATUS_OK;
       break;
 
+
     case MANAGER_STATUS_REQUEST_MEASUREMENT:
       //initiating measurement
       //start timer 6s
@@ -50,6 +51,7 @@ sl_status_t Manager_RunStateMachine(){
       hConfig.currentState = MANAGER_STATUS_IDLE;
       status = SL_STATUS_OK;
       break;
+
 
     case MANAGER_STATUS_READ_MEASUREMENTS:
       Dfr_GetData(&so2Data);
@@ -73,27 +75,34 @@ sl_status_t Manager_RunStateMachine(){
               hConfig.sensorData.co2Ppm, hConfig.sensorData.fsc, hConfig.sensorData.temp_x100,
               hConfig.sensorData.rh_x100);
 
-      hConfig.currentState = MANAGER_STATUS_REQUEST_MEASUREMENT;  //TODO remove
+      hConfig.currentState = MANAGER_STATUS_SEND;
+
       status = SL_STATUS_OK;
       break;
+
 
     case MANAGER_STATUS_SEND:
-
+      //set sending state to lora drv
+      Lora_SetState(LORA_STATUS__SEND_DATA);
+      hConfig.currentState = MANAGER_STATUS_SEND_IN_PROCESS;
       status = SL_STATUS_OK;
       break;
+
 
     case MANAGER_STATUS_SEND_IN_PROCESS:
-
+      //wait till lora_drv confirms msg is sent
       status = SL_STATUS_OK;
       break;
+
 
     case MANAGER_STATUS_SENT:
-
+      app_log("Data sent via LoRa");
+      hConfig.currentState = MANAGER_STATUS_REQUEST_MEASUREMENT;
       status = SL_STATUS_OK;
       break;
 
-    case MANAGER_STATUS_ERROR:
 
+    case MANAGER_STATUS_ERROR:
       status = SL_STATUS_OK;
       break;
   }
@@ -110,6 +119,16 @@ void Manager_InitializeConfiguration(){
   hConfig.sensorData.rh_x100 = 0;
   hConfig.sensorData.temp_x100 = 0;
 }
+
+
+void Manager_SetState(Manager_Status_t state){
+  hConfig.currentState = state;
+}
+
+void Manager_GetData(Manager_SensorData_t *sensorData){
+  *sensorData = hConfig.sensorData;
+}
+
 
 void Manager_cbTimerRequestMeasurement(sl_sleeptimer_timer_handle_t *handle, void *data){
   (void)data;

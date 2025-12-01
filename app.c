@@ -39,7 +39,15 @@ void app_init(void)
   RPI_Init_State_Handles();
   Scd41_InitializeConfiguration();
   Dfr_InitializeConfiguration();
+  LORA_InitializeConfiguration();
   Manager_InitializeConfiguration();
+
+  /*
+  const uint8_t payload[] = {0xAB,0xFF};
+  char hexString;
+  Lora_bytes2Hex(&payload, sizeof(payload), &hexString);
+*/
+
 
   char *buf;
   buf = "initiate_recv\n";
