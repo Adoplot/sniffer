@@ -11,7 +11,7 @@
 #include "app_log.h"
 #include "sl_sleeptimer.h"
 
-#define MANAGER__TIME_BETWEEN_MEAS_MS  6000
+#define MANAGER__TIME_BETWEEN_MEAS_MS  1000
 
 static sl_sleeptimer_timer_handle_t hTimer;
 static Manager_Handle_t hConfig;
